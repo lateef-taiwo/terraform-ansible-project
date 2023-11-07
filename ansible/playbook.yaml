@@ -41,22 +41,6 @@
         name: python3-pip
         state: present
 
-- name: Install required Python packages and clone GitHub Repository
-  hosts: dev_server
-  become: yes
-  tasks:
-    - name: Install Python packages
-      pip:
-        name:
-          - requests
-        state: present
-    - name: Git Clone Repository
-      git:
-        repo: https://github.com/lateef-taiwo/HospitalManagementSystem.git
-        dest: /home/ubuntu/HospitalManagementSystem
-        version: master
-        update: yes
-
 - name: Install and Start Mysql server
   hosts: dev_server
   become: yes
@@ -70,3 +54,79 @@
       service:
         name: mysql
         state: started
+
+- name: Install required Python packages and clone GitHub Repository
+  hosts: dev_server
+  become: yes
+  become_user: ubuntu
+  become_method: su
+  tasks:
+    - name: Install Python packages
+
+      pip:
+        name:
+          - requests
+        state: present
+
+    - name: Git Clone Repository
+      git:
+        repo: https://github.com/lateef-taiwo/HospitalManagementSystem.git
+        dest: /home/ubuntu/HospitalManagementSystem
+        version: master
+        update: yes
+        clone: yes
+        accept_hostkey: yes
+        force: yes
+
+    - name: Ensure the owner of the cloned directory is ubuntu
+      file:
+        path: /home/ubuntu/HospitalManagementSystem
+        owner: ubuntu
+        group: ubuntu
+        recurse: yes
+
+- name: Check /var/www/html directory
+  hosts: dev_server
+  become: yes
+  tasks:
+    - name: Check /var/www/html directory
+      file:
+       path: /var/www/html
+       state: directory
+       owner: ubuntu  # Adjust the owner as needed
+       group: ubuntu  # Adjust the group as needed
+       mode: "0755"
+
+- name: Create symbolic link
+  hosts: dev_server
+  become: yes
+  become_user: ubuntu
+  become_method: su
+  tasks:
+    - name: Create symbolic link
+      file:
+        src: /home/ubuntu/HospitalManagementSystem
+        dest: /var/www/html/HospitalManagementSystem
+        state: link
+
+- name: Run Flask Application
+  hosts: dev_server
+  become: no
+  vars:
+    playbook_dir: /home/savvytech/Documents/DevOps/Terraform/terraform-ansible-project/ansible
+    script_name: flask_app.sh  # Specify the script name here
+    remote_user: ubuntu
+  tasks:
+    - name: Copy the script to the remote server
+      copy:
+        src: "{{ playbook_dir }}/{{ script_name  }}"
+        dest: /home/ubuntu/{{ script_name }}
+      #delegate_to: localhost
+
+    - name: Make the script executable
+      command: chmod +x /home/ubuntu/{{ script_name }}
+
+    - name: Run the script
+      script: ./home/ubuntu/{{ script_name }}
+      # remote_src: yes
+
